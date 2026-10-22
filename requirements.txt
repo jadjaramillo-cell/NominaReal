@@ -3,7 +3,6 @@ bokeh==2.2.3
 plotly==4.14.1
 streamlit==0.73.0
 boto3==1.17.20
-altair==4.1.0
 numpy==1.19.2
 ortools==8.0.8283
 graphviz==0.15
