@@ -1,40 +1,107 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import io
 
-st.set_page_config(page_title="Plano Nómina", layout="wide")
+# ==================================================
+# CONFIGURACIÓN
+# ==================================================
 
-st.title("Generador Plano Nómina")
+st.set_page_config(
+    page_title="Generador de Planos SAP",
+    layout="wide"
+)
+
+st.title("Generador de Planos SAP")
+
+# ==================================================
+# PROCESO
+# ==================================================
+
+proceso = st.radio(
+    "Seleccione el proceso",
+    [
+        "Nómina",
+        "Prestaciones Sociales",
+        "Seguridad Social"
+    ]
+)
 
 fecha = st.text_input(
     "Fecha (AAAAMMDD)",
     value="20260930"
 )
 
-nomina_file = st.file_uploader(
-    "Archivo Nómina",
-    type=["xlsx"]
-)
+# ==================================================
+# PARAMETROS POR PROCESO
+# ==================================================
+
+if proceso == "Nómina":
+
+    nombre_proceso = "NOMINA"
+    segundo = "6"
+    cuarto = "COMPROBANTE DE CAUSACION"
+    treceavo = "NM"
+    hoja_principal = "TOTAL CONTABILIZACIÓN"
+
+    archivo_principal = st.file_uploader(
+        "Archivo Nómina",
+        type=["xlsx"]
+    )
+
+elif proceso == "Prestaciones Sociales":
+
+    nombre_proceso = "PRESTACIONES SOCIALES"
+    segundo = "1"
+    cuarto = "COMPROBANTE PRESTACIONES SOCIALES"
+    treceavo = "PS"
+    hoja_principal = "CONTABILIZACION "
+
+    archivo_principal = st.file_uploader(
+        "Archivo Prestaciones Sociales",
+        type=["xlsx"]
+    )
+
+else:
+
+    nombre_proceso = "SEGURIDAD SOCIAL"
+    segundo = "1"
+    cuarto = "COMPROBANTE AUTOLIQ/PARAFISCALES"
+    treceavo = "NA"
+    hoja_principal = "TOTAL SS "
+
+    archivo_principal = st.file_uploader(
+        "Archivo Seguridad Social",
+        type=["xlsx"]
+    )
+
+# ==================================================
+# ARCHIVOS COMUNES
+# ==================================================
 
 cencos_file = st.file_uploader(
-    "Archivo Validación Cencos",
+    "Validación Cencos",
     type=["xlsx"]
 )
 
 hs_file = st.file_uploader(
-    "Archivo Clasificación H-S",
+    "Clasificación H-S",
     type=["xlsx"]
 )
 
 conc_file = st.file_uploader(
-    "Archivo Conciliación Cuentas",
+    "Conciliación Cuentas",
     type=["xlsx"]
 )
+
+# ==================================================
+# BOTON
+# ==================================================
 
 if st.button("Procesar"):
 
     if not all([
-        nomina_file,
+        archivo_principal,
         cencos_file,
         hs_file,
         conc_file
@@ -42,15 +109,15 @@ if st.button("Procesar"):
         st.error("Debe cargar todos los archivos.")
         st.stop()
 
-    with st.spinner("Procesando información..."):
+    try:
 
-        # ==========================
-        # Lectura archivos
-        # ==========================
+        # ==================================================
+        # LECTURA
+        # ==================================================
 
-        nomina = pd.read_excel(
-            nomina_file,
-            sheet_name="TOTAL CONTABILIZACIÓN",
+        df = pd.read_excel(
+            archivo_principal,
+            sheet_name=hoja_principal,
             dtype=str
         )
 
@@ -70,27 +137,28 @@ if st.button("Procesar"):
             dtype=str
         )
 
-        nomina["PROCESO"] = "NOMINA"
+        df["PROCESO"] = nombre_proceso
 
-        # ==========================
-        # Limpieza
-        # ==========================
+        # ==================================================
+        # LIMPIEZA
+        # ==================================================
 
-        nomina['Id. Tercero .'] = (
-            nomina['Id. Tercero .']
-            .astype(str)
+        for tabla in [df, cencos, h_s, conc_vieja]:
+            tabla.fillna('', inplace=True)
+
+        df['Id. Tercero .'] = (
+            df['Id. Tercero .']
             .str.replace('.0', '', regex=False)
         )
 
         conc_vieja['Identificación'] = (
             conc_vieja['Identificación']
-            .astype(str)
             .str.replace('.0', '', regex=False)
         )
 
-        # ==========================
-        # Match terceros
-        # ==========================
+        # ==================================================
+        # MATCH TERCEROS
+        # ==================================================
 
         df_der_aux = pd.concat([
             conc_vieja.assign(
@@ -101,8 +169,21 @@ if st.button("Procesar"):
             )
         ])
 
+        # ==================================================
+        # H/S
+        # ==================================================
+
+        h_s = h_s.drop_duplicates(
+            subset=['Id cuenta', 'Tipo'],
+            keep='first'
+        )
+
+        # ==================================================
+        # PROCESO
+        # ==================================================
+
         resultado = (
-            nomina
+            df
             .merge(
                 df_der_aux[['id_match']].drop_duplicates(),
                 left_on='Id. Tercero .',
@@ -125,49 +206,37 @@ if st.button("Procesar"):
                 right_on='Centro de costo',
                 how='left'
             )
+            .merge(
+                h_s[
+                    ['Id cuenta', 'Tipo', 'S/H']
+                ],
+                left_on=[
+                    'Id Cuenta ',
+                    'PROCESO'
+                ],
+                right_on=[
+                    'Id cuenta',
+                    'Tipo'
+                ],
+                how='left'
+            )
         )
-
-        # ==========================
-        # Validaciones
-        # ==========================
 
         sin_match_tercero = resultado[
             resultado['id_match'].isna()
-        ].dropna(
-            subset=['Id. Tercero .']
-        )
+        ]['Id. Tercero .'].dropna().unique()
 
         sin_match_cuenta = resultado[
             resultado['Cuenta'].isna()
-        ].dropna(
-            subset=['Id Cuenta ']
-        )
+        ]['Id Cuenta '].dropna().unique()
 
         sin_match_cencos = resultado[
             resultado['Centro de costo'].isna()
-        ].dropna(
-            subset=['Id. C.Costos']
-        )
+        ]['Id. C.Costos'].dropna().unique()
 
-        # ==========================
-        # H/S
-        # ==========================
-
-        h_s = h_s.drop_duplicates(
-            subset=['Id cuenta', 'Tipo'],
-            keep='first'
-        )
-
-        resultado = resultado.merge(
-            h_s[['Id cuenta', 'Tipo', 'S/H']],
-            left_on=['Id Cuenta ', 'PROCESO'],
-            right_on=['Id cuenta', 'Tipo'],
-            how='left'
-        )
-
-        # ==========================
-        # Construcción plano
-        # ==========================
+        # ==================================================
+        # CONSTRUCCION PLANO
+        # ==================================================
 
         resultado['valor_sap'] = (
             pd.to_numeric(
@@ -183,35 +252,60 @@ if st.button("Procesar"):
 
         resultado['Centro de costo'] = (
             resultado['Centro de costo']
+            .replace('', np.nan)
             .fillna(resultado['Id. C.Costos'])
         )
 
-        resultado['sociedad'] = "1000"
-        resultado['segundo'] = "6"
+        resultado['Id cuenta'] = (
+            resultado['Id cuenta']
+            .replace('', np.nan)
+            .fillna(resultado['Id Cuenta '])
+        )
+
+        resultado['id_match'] = (
+            resultado['id_match']
+            .replace('', np.nan)
+            .fillna(resultado['Id. Tercero .'])
+        )
+
+        resultado['sociedad'] = '1000'
+        resultado['segundo'] = segundo
         resultado['fecha'] = fecha
-        resultado['cuarto'] = "COMPROBANTE DE CAUSACION"
+        resultado['cuarto'] = cuarto
         resultado['id_match2'] = resultado['id_match']
 
-        resultado['CCOSTO_4000'] = resultado[
-            'C.costo_sap'
-        ].where(
+        resultado['CCOSTO_4000'] = (
             resultado['C.costo_sap']
-            .str.startswith('4000', na=False),
-            ''
+            .where(
+                resultado['C.costo_sap']
+                .str.startswith('4000', na=False),
+                ''
+            )
         )
 
-        resultado['CCOSTO_OTROS'] = resultado[
-            'C.costo_sap'
-        ].where(
-            ~resultado['C.costo_sap']
-            .str.startswith('4000', na=False),
-            ''
+        resultado['CCOSTO_OTROS'] = (
+            resultado['C.costo_sap']
+            .where(
+                ~resultado['C.costo_sap']
+                .str.startswith('4000', na=False),
+                ''
+            )
         )
 
-        resultado['doceavo'] = "COMPROBANTE"
-        resultado['treceavo'] = "NM"
+        resultado['doceavo'] = 'COMPROBANTE'
+        resultado['treceavo'] = treceavo
         resultado['fecha2'] = fecha
-        resultado['quinceavo'] = "T"
+        resultado['quinceavo'] = 'T'
+
+        resultado['16'] = np.where(
+            resultado['Id Cuenta ']
+            .str.startswith(
+                ('23', '25', '26'),
+                na=False
+            ),
+            '1010201',
+            ''
+        )
 
         resultado = resultado[
             [
@@ -229,56 +323,49 @@ if st.button("Procesar"):
                 'doceavo',
                 'treceavo',
                 'fecha2',
-                'quinceavo'
+                'quinceavo',
+                '16'
             ]
         ]
 
-        # ==========================
-        # Resumen
-        # ==========================
+        # ==================================================
+        # MENSAJES
+        # ==================================================
 
-        st.success("Proceso completado correctamente")
+        st.success("Proceso completado")
 
         col1, col2, col3, col4 = st.columns(4)
 
-        with col1:
-            st.metric(
-                "Registros procesados",
-                len(resultado)
-            )
+        col1.metric(
+            "Registros",
+            len(resultado)
+        )
 
-        with col2:
-            st.metric(
-                "Terceros sin match",
-                len(sin_match_tercero)
-            )
+        col2.metric(
+            "Terceros sin match",
+            len(sin_match_tercero)
+        )
 
-        with col3:
-            st.metric(
-                "Cuentas sin match",
-                len(sin_match_cuenta)
-            )
+        col3.metric(
+            "Cuentas sin match",
+            len(sin_match_cuenta)
+        )
 
-        with col4:
-            st.metric(
-                "Cencos sin match",
-                len(sin_match_cencos)
-            )
+        col4.metric(
+            "Cencos sin match",
+            len(sin_match_cencos)
+        )
 
-        # ==========================
-        # Vista previa
-        # ==========================
-
-        st.subheader("Vista previa del archivo plano")
+        st.subheader("Vista previa")
 
         st.dataframe(
             resultado.head(20),
             use_container_width=True
         )
 
-        # ==========================
-        # Descarga TXT
-        # ==========================
+        # ==================================================
+        # DESCARGA TXT
+        # ==================================================
 
         txt_buffer = io.StringIO()
 
@@ -289,10 +376,20 @@ if st.button("Procesar"):
             header=False
         )
 
+        nombre_archivo = {
+            "Nómina": "Nomina_plano",
+            "Prestaciones Sociales": "Prestaciones_plano",
+            "Seguridad Social": "SS_plano"
+        }[proceso]
+
         st.download_button(
-            label="📥 Descargar archivo plano",
+            label=f"📥 Descargar {nombre_archivo}.txt",
             data=txt_buffer.getvalue(),
-            file_name=f"archivo_plano_{fecha}.txt",
+            file_name=f"{nombre_archivo}_{fecha}.txt",
             mime="text/plain",
             use_container_width=True
         )
+
+    except Exception as e:
+
+        st.error(f"Error: {str(e)}")
