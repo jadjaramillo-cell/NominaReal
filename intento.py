@@ -233,58 +233,66 @@ if st.button("Procesar"):
             ]
         ]
 
-# Mostrar algunas estadísticas
-st.success("Proceso completado correctamente")
-
-st.write("Registros generados:", len(resultado))
-
-# Crear archivo TXT en memoria
-txt_buffer = io.StringIO()
-
-resultado.to_csv(
-    txt_buffer,
-    sep="\t",
-    index=False,
-    header=False
-)
-
-# Botón visible de descarga
-st.download_button(
-    label="📥 Descargar archivo plano",
-    data=txt_buffer.getvalue(),
-    file_name=f"archivo_plano_{fecha}.txt",
-    mime="text/plain",
-    use_container_width=True
-)
-
-        
         # ==========================
-        # Mensajes
+        # Resumen
         # ==========================
 
-        st.success("Proceso completado")
+        st.success("Proceso completado correctamente")
 
         col1, col2, col3, col4 = st.columns(4)
 
-        col1.metric(
-            "Registros procesados",
-            len(resultado)
-        )
+        with col1:
+            st.metric(
+                "Registros procesados",
+                len(resultado)
+            )
 
-        col2.metric(
-            "Terceros sin match",
-            len(sin_match_tercero)
-        )
+        with col2:
+            st.metric(
+                "Terceros sin match",
+                len(sin_match_tercero)
+            )
 
-        col3.metric(
-            "Cuentas sin match",
-            len(sin_match_cuenta)
-        )
+        with col3:
+            st.metric(
+                "Cuentas sin match",
+                len(sin_match_cuenta)
+            )
 
-        col4.metric(
-            "Cencos sin match",
-            len(sin_match_cencos)
+        with col4:
+            st.metric(
+                "Cencos sin match",
+                len(sin_match_cencos)
+            )
+
+        # ==========================
+        # Vista previa
+        # ==========================
+
+        st.subheader("Vista previa del archivo plano")
+
+        st.dataframe(
+            resultado.head(20),
+            use_container_width=True
         )
 
         # ==========================
-        # Archivo TXT
+        # Descarga TXT
+        # ==========================
+
+        txt_buffer = io.StringIO()
+
+        resultado.to_csv(
+            txt_buffer,
+            sep="\t",
+            index=False,
+            header=False
+        )
+
+        st.download_button(
+            label="📥 Descargar archivo plano",
+            data=txt_buffer.getvalue(),
+            file_name=f"archivo_plano_{fecha}.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
