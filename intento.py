@@ -329,32 +329,90 @@ if st.button("Procesar"):
         ]
 
         # ==================================================
-        # MENSAJES
+        # MENSAJES Y VALIDACIONES
         # ==================================================
 
         st.success("Proceso completado")
 
-        col1, col2, col3, col4 = st.columns(4)
-
-        col1.metric(
-            "Registros",
+        st.metric(
+            "Registros procesados",
             len(resultado)
         )
 
-        col2.metric(
-            "Terceros sin match",
-            len(sin_match_tercero)
-        )
+        # --------------------------
+        # TERCEROS SIN MATCH
+        # --------------------------
 
-        col3.metric(
-            "Cuentas sin match",
-            len(sin_match_cuenta)
-        )
+        if len(sin_match_tercero) > 0:
 
-        col4.metric(
-            "Cencos sin match",
-            len(sin_match_cencos)
-        )
+            st.warning(
+                f"⚠️ Se encontraron {len(sin_match_tercero)} terceros sin match."
+            )
+
+            st.write("### Terceros sin match")
+
+            st.dataframe(
+                pd.DataFrame({
+                    "Id. Tercero .": sorted(sin_match_tercero)
+                }),
+                use_container_width=True
+            )
+
+        # --------------------------
+        # CUENTAS SIN MATCH
+        # --------------------------
+
+        if len(sin_match_cuenta) > 0:
+
+            st.warning(
+                f"⚠️ Se encontraron {len(sin_match_cuenta)} cuentas sin match."
+            )
+
+            st.write("### Cuentas sin match")
+
+            st.dataframe(
+                pd.DataFrame({
+                    "Id Cuenta": sorted(sin_match_cuenta)
+                }),
+                use_container_width=True
+            )
+
+        # --------------------------
+        # CENCOS SIN MATCH
+        # --------------------------
+
+        if len(sin_match_cencos) > 0:
+
+            st.warning(
+                f"⚠️ Se encontraron {len(sin_match_cencos)} centros de costo sin match."
+            )
+
+            st.write("### Centros de costo sin match")
+
+            st.dataframe(
+                pd.DataFrame({
+                    "Centro de costo": sorted(sin_match_cencos)
+                }),
+                use_container_width=True
+            )
+
+        # --------------------------
+        # TODO OK
+        # --------------------------
+
+        if (
+            len(sin_match_tercero) == 0
+            and len(sin_match_cuenta) == 0
+            and len(sin_match_cencos) == 0
+        ):
+
+            st.success(
+                "✅ No se encontraron inconsistencias."
+            )
+
+        # ==================================================
+        # VISTA PREVIA
+        # ==================================================
 
         st.subheader("Vista previa")
 
