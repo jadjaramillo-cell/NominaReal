@@ -233,6 +233,31 @@ if st.button("Procesar"):
             ]
         ]
 
+# Mostrar algunas estadísticas
+st.success("Proceso completado correctamente")
+
+st.write("Registros generados:", len(resultado))
+
+# Crear archivo TXT en memoria
+txt_buffer = io.StringIO()
+
+resultado.to_csv(
+    txt_buffer,
+    sep="\t",
+    index=False,
+    header=False
+)
+
+# Botón visible de descarga
+st.download_button(
+    label="📥 Descargar archivo plano",
+    data=txt_buffer.getvalue(),
+    file_name=f"archivo_plano_{fecha}.txt",
+    mime="text/plain",
+    use_container_width=True
+)
+
+        
         # ==========================
         # Mensajes
         # ==========================
