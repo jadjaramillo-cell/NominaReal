@@ -1,4 +1,23 @@
 import streamlit as st
+import subprocess
+import sys
+
+try:
+    import openpyxl
+    st.success(f"Openpyxl OK - versión {openpyxl.__version__}")
+except Exception:
+    st.warning("Instalando openpyxl...")
+
+    subprocess.check_call([
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "openpyxl"
+    ])
+
+    import openpyxl
+
 import pandas as pd
 import io
 
