@@ -53,8 +53,8 @@ elif proceso == "Prestaciones Sociales":
 
     nombre_proceso = "PRESTACIONES SOCIALES"
     segundo = "1"
-    cuarto = "COMPROBANTE PRESTACIONES SOCIALES"
-    treceavo = "PS"
+    cuarto = "COMPROBANTE DE CAUSACION"
+    treceavo = "NP"
     hoja_principal = "CONTABILIZACION "
 
     archivo_principal = st.file_uploader(
